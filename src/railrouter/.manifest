@@ -1,0 +1,12 @@
+{
+	description = "Server that routes minecarts on the rail network to their destinations",
+	dependencies = {
+		{name = "log"},
+		{name = "events"},
+		{name = "net"},
+		{name = "dns"},
+		{name = "serializer"},
+		{name = "graph"},
+		{name = "amber-autoupdater"}
+	}
+}

@@ -1,0 +1,102 @@
+os.loadAPI("apis/log")
+os.loadAPI("apis/events")
+os.loadAPI("apis/net")
+os.loadAPI("apis/dns")
+os.loadAPI("apis/serializer")
+os.loadAPI("apis/graph")
+os.loadAPI("apis/graphmanager")
+os.loadAPI("apis/autoupdater")
+
+function checkTrip(trip)
+	log.info(string.format("New trip: %s at %s departing for %s", trip.type, trip.origin, trip.destination))
+	
+	local railGraph = graphmanager.getGraph()
+	local path = graph.shortestPath(railGraph, {origin = trip.origin, destination = trip.destination})
+	if path == nil then
+		-- TODO: Return an error to the client.
+		log.warn(string.format("No path exists from %s to %s; ignoring trip request", trip.origin, trip.destination))
+		return
+	end
+
+	net.sendMessage(trip.computerId, "allowDeparture", trip)
+end
+
+function registerTrip(trip)
+	log.info(string.format("Departed: %s at %s in %s departing for %s", trip.type, trip.origin, trip.minecartName, trip.destination))
+	
+	trips[trip.minecartName] = trip
+	serializer.writeToFile("trips", trips)
+end
+
+function minecartDetected(detection)
+	log.info(string.format("Minecart detected: %s at %s", detection.minecartName, detection.node))
+	
+	local trip = trips[detection.minecartName]
+	if trip == nil then
+		log.warn(string.format("No trip active for %s; ignoring detection", detection.minecartName))
+		return
+	end
+	
+	if trip.destination == detection.node then
+		log.info(string.format("Trip to %s completed for %s", trip.destination, detection.minecartName))
+		trips[detection.minecartName] = nil
+		serializer.writeToFile("trips", trips)
+		return
+	end
+	
+	local railGraph = graphmanager.getGraph()
+	local node = railGraph[detection.node]
+	if node == nil then
+		log.warn(string.format("Unknown node %s; ignoring detection", detection.node))
+		return
+	end
+	if node.switchId == nil then
+		-- There's nothing to do here if this node is not a switch.
+		return
+	end
+	local switch = switches[node.switchId]
+	if switch == nil or switch.computerId == nil then
+		log.warn(string.format("Node %s references switch %i, which was not found; ignoring detection", detection.node, node.switchId))
+		return
+	end
+
+	local path = graph.shortestPath(railGraph, {origin = detection.node, destination = trip.destination})
+	if path == nil then
+		log.warn(string.format("No path exists from %s to %s; ignoring detection", detection.node, trip.destination))
+		return
+	end
+	
+	local edge = path[1]
+	if edge == nil then
+		log.warn(string.format("Path to destination %s is empty; ignoring detection", trip.destination))
+		return
+	end
+	
+	log.info(string.format("Setting switch %s to %s", detection.node, tostring(edge.switchState)))
+	net.sendMessage(switch.computerId, "setSwitch", {state = edge.switchState})
+end
+
+function switchOnline(switch)
+	log.info(string.format("Switch %i online", switch.id))
+	switches[switch.id] = switch
+	serializer.writeToFile("switches", switches)
+end
+
+function onStartup()
+	trips = serializer.readFromFile("trips")
+	switches = serializer.readFromFile("switches")
+	net.registerMessageHandler("newTrip", checkTrip)
+	net.registerMessageHandler("tripDeparted", registerTrip)
+	net.registerMessageHandler("minecartDetected", minecartDetected)
+	net.registerMessageHandler("switchOnline", switchOnline)
+	dns.register("railrouter")
+	graphmanager.onStartup()
+	autoupdater.initialize()
+	
+	dofile("config")
+	log.info(string.format("RailRouterOS: Listening on %s...", net.openModem(config.modem)))
+
+	events.runMessageLoop()
+end
+
+onStartup()
