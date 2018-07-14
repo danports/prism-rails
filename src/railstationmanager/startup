@@ -1,0 +1,81 @@
+os.loadAPI("apis/log")
+os.loadAPI("apis/events")
+os.loadAPI("apis/net")
+os.loadAPI("apis/dns")
+os.loadAPI("apis/serializer")
+os.loadAPI("apis/autoupdater")
+
+function getStationComputerId(station, feature)
+	local station = stations[station]
+	if station == nil then
+		return nil
+	end
+	local featureConfig = station.features[feature]
+	if featureConfig == nil then
+		return nil
+	end
+	return featureConfig.computerId
+end
+
+function notifyNewRequest(request)
+	print(string.format("Sending new %s request to station %i", request.class, request.source))
+	local computerId = getStationComputerId(request.source, request.class)
+	if computerId == nil then
+		log.err(string.format("Sending request to station %i but %s computer ID not found; discarding request", request.source, request.class))
+		return
+	end
+	net.sendMessage(computerId, "newRequest", request)
+end
+
+function mergeTables(a, b)
+	for key, value in pairs(b) do
+		if a[key] == nil or type(a[key]) ~= "table" or type(value) ~= "table" then
+			a[key] = value
+		else
+			mergeTables(a[key], value)
+		end
+	end
+end
+
+function updateStation(station)
+	log.info(string.format("Updating station %i", station.stationId))
+	if stations[station.stationId] == nil then
+		stations[station.stationId] = {}
+	end
+	mergeTables(stations[station.stationId], station)
+	stationsChanged()
+end
+
+function stationsChanged()
+	serializer.writeToFile("stations", stations)
+	
+	for id in pairs(stations) do
+		local computerId = getStationComputerId(id, "passenger")
+		if computerId ~= nil then
+			log.info(string.format("Sending station update to %i at station %i", computerId, id))
+			net.sendMessage(computerId, "stationUpdate", stations)
+		end
+	end
+end
+
+function removeStation(station)
+	log.info(string.format("Removing station %i", station.stationId))
+	stations[station.stationId] = nil
+	stationsChanged()
+end
+
+function onStartup()
+	net.registerMessageHandler("newRequest", notifyNewRequest)
+	net.registerMessageHandler("stationOnline", updateStation)
+	net.registerMessageHandler("stationOffline", removeStation)
+	autoupdater.initialize()
+
+	dofile("config")
+	log.info(string.format("RailStationManagerOS: Listening on %s...", net.openModem(config.modem)))
+	stations = serializer.readFromFile("stations")
+	dns.register("railstationmanager")
+	
+	events.runMessageLoop()
+end
+
+onStartup()

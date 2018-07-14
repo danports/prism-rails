@@ -1,0 +1,11 @@
+{
+	description = "Server that manages all of the stations on a rail network",
+	dependencies = {
+		{name = "log"},
+		{name = "events"},
+		{name = "net"},
+		{name = "dns"},
+		{name = "serializer"},
+		{name = "amber-autoupdater"}
+	}
+}
