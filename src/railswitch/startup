@@ -1,0 +1,56 @@
+os.loadAPI("apis/events")
+os.loadAPI("apis/net")
+os.loadAPI("apis/serializer")
+os.loadAPI("apis/wire")
+os.loadAPI("apis/minecartevents")
+os.loadAPI("apis/autoupdater")
+
+function setSwitchOutput(value)
+	print(string.format("Setting switch to %s", tostring(value)))
+	wire.setOutput(config.switch, value)
+	if config.slowTrack ~= nil then
+		wire.setOutput(config.slowTrack, not value)
+	end
+end
+
+function setSwitch(update)
+	local value = update.state
+	setSwitchOutput(value)
+	state.switch = value
+	serializer.writeToFile("state", state)
+end
+
+function minecartDetected(eventName, detector, minecartType, minecartName)
+	print(string.format("Minecart detected: %s", minecartName))
+	local msg = {
+		node = string.format("T%i", config.switchId),
+		minecartName = minecartName,
+		minecartType = minecartType
+	}
+	net.sendMessage("railrouter://", "minecartDetected", msg)
+end
+
+function onStartup()
+	net.registerMessageHandler("setSwitch", setSwitch)
+	minecartevents.registerMinecartHandler(minecartDetected)
+	autoupdater.initialize()
+	
+	dofile("config")
+	print(string.format("RailSwitchOS: Switch %i listening on %s...", config.switchId, net.openModem(config.modem)))
+
+	state = {}
+	events.setTimer(math.random(5), function()
+		state = serializer.readFromFile("state")
+		if state.switch == nil then
+			state.switch = false
+		end
+		setSwitchOutput(state.switch)
+		
+		local msg = {id = config.switchId, computerId = os.computerID()}
+		net.sendMessage("railrouter://", "switchOnline", msg)
+	end)
+	
+	events.runMessageLoop()
+end
+
+onStartup()

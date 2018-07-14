@@ -1,0 +1,11 @@
+{
+	description = "Server that controls a single railroad switch",
+	dependencies = {
+		{name = "events"},
+		{name = "net"},
+		{name = "serializer"},
+		{name = "wire"},
+		{name = "minecartevents"},
+		{name = "amber-autoupdater"}
+	}
+}
