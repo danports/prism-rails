@@ -1,0 +1,7 @@
+{
+	description = "Wrapper for the minecart event provided by the Computronics digital detector",
+	dependencies = {
+		{name = "util"},
+		{name = "events"}
+	}
+}
