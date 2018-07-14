@@ -1,0 +1,11 @@
+{
+	description = "Server for a passenger station on a rail network",
+	dependencies = {
+		{name = "events"},
+		{name = "net"},
+		{name = "serializer"},
+		{name = "wire"},
+		{name = "minecartevents"},
+		{name = "amber-autoupdater"}
+	}
+}
