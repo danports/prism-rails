@@ -203,12 +203,11 @@ function onStartup()
 	net.registerMessageHandler("minecartDetected", minecartDetected)
 	net.registerMessageHandler("switchOnline", switchOnline)
 	net.registerMessageHandler("switchOffline", switchOffline)
-	dns.register("railrouter")
-	graphmanager.onStartup()
 	autoupdater.initialize()
 	
 	dofile("config")
 	log.info(string.format("RailRouterOS: Listening on %s...", net.openModem(config.modem)))
+	dns.register("railrouter")
 
 	events.runMessageLoop()
 end
