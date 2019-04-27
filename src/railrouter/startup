@@ -162,7 +162,7 @@ function getSwitchNode(id)
 end
 
 function addSwitchToNetwork(switch)
-	network:addNode(getSwitchNode(switch.switchId), {
+	network:addNode(getSwitchNode(switch.id), {
 		location = switch.location,
 		connections = {{location = switch.divergesTo, switchState = true}}
 	})
