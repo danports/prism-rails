@@ -11,7 +11,7 @@ function requestDeparture(destination)
 		type = "passenger",
 		computerId = os.computerID(),
 		origin = config.features.passenger.cartsOut.location,
-		destination = stations[destination].location
+		destination = stations[destination].passenger.cartsIn.location
 	}
 	
 	print(string.format("Requesting %s departure to station %i...", trip.type, destination))
@@ -171,7 +171,6 @@ function minecartDetected(eventName, detector, minecartType, minecartName)
 		return
 	end
 	if detector == config.features.passenger.cartsOut.detector then
-		-- New departure
 		if pendingTrip == nil then
 			print("ERROR: Outgoing minecart detected but no trip is pending; ignoring detection")
 			return
