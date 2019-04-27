@@ -11,7 +11,7 @@ function requestDeparture(destination)
 		type = "passenger",
 		computerId = os.computerID(),
 		origin = config.features.passenger.cartsOut.location,
-		destination = stations[destination].passenger.cartsIn.location
+		destination = stations[destination].features.passenger.cartsIn.location
 	}
 	
 	print(string.format("Requesting %s departure to station %i...", trip.type, destination))
