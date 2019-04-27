@@ -1,0 +1,85 @@
+os.loadAPI("apis/graph")
+
+function formatLocation(location)
+    return string.format("%s@%i", location.line, location.position)
+end
+
+local railNetwork = {
+    addNode = function(self, id, node)
+        self.nodes[id] = node
+        self.graph = nil
+    end,
+    removeNode = function(self, id)
+        self.nodes[id] = nil
+        self.graph = nil
+    end,
+    buildGraph = function(self)
+        if self.graph then
+            return
+        end
+        local lines = {}
+        local function establishNode(location, node)
+            local lineName = location.line
+            local line = lines[lineName]
+            if not line then
+                line = {}
+                lines[lineName] = line
+            end
+            local existing = line[location.position]
+            if node and existing and existing.edges then
+                error(string.format("Conflicting nodes defined at %s", formatLocation(location)))
+            end
+            line[location.position] = node or existing or {location = location}
+            return line[location.position]
+        end
+
+        for id, node in pairs(self.nodes) do
+            node.edges = {}
+            if node.connections then
+                for _, connection in pairs(node.connections) do
+                    establishNode(connection.location)
+                    connection.destination = formatLocation(connection.location)
+                    table.insert(node.edges, connection)
+                end
+            end
+            establishNode(node.location, node)
+        end
+
+        local graph = {}
+        for line, lineNodes in pairs(lines) do
+            local sorted = {}
+            for position, node in pairs(lineNodes) do
+                table.insert(sorted, node)
+            end
+            table.sort(sorted, function(a, b) 
+                return a.location.position < b.location.position
+            end)
+            for index = 1, #sorted do
+                local node = sorted[index]
+                graph[formatLocation(node.location)] = node
+                node.edges = node.edges or {}
+                if node.location.direction > 0 and index < #sorted then
+                    table.insert(node.edges, {destination = formatLocation(sorted[index + 1].location)})
+                elseif node.location.direction < 0 and index > 1 then
+                    table.insert(node.edges, {destination = formatLocation(sorted[index - 1].location)})
+                end
+            end
+        end
+
+        self.graph = graph
+    end,
+    findRoute = function(self, trip)
+        self:buildGraph()
+        return graph.shortestPath(self.graph, {origin = formatLocation(trip.origin), destination = formatLocation(trip.destination)})
+    end
+}
+
+local metatable = {
+    __index = railNetwork
+}
+
+function new()
+    local network = {nodes = {}}
+    setmetatable(network, metatable)
+    return network
+end

@@ -1,0 +1,6 @@
+{
+	description = "Library that manages the rail network based on the concept of lines and computes routes through the network",
+	dependencies = {
+		{name = "graph"}
+	}
+}
