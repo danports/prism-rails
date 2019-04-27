@@ -3,18 +3,19 @@ os.loadAPI("apis/net")
 os.loadAPI("apis/serializer")
 os.loadAPI("apis/wire")
 os.loadAPI("apis/minecartevents")
+os.loadAPI("apis/autostartup")
 os.loadAPI("apis/autoupdater")
 
-function requestDeparture(origin, destination)
+function requestDeparture(destination)
 	local trip = {
 		type = "passenger",
 		computerId = os.computerID(),
-		origin = string.format("S%i-depart", origin),
-		destination = string.format("S%i-arrive", destination)
+		origin = config.features.passenger.cartsOut.location,
+		destination = stations[destination].location
 	}
 	
 	print(string.format("Requesting %s departure to station %i...", trip.type, destination))
-	net.sendMessage("railrouter://", "newTrip", trip)
+	net.sendMessage(config.router, "newTrip", trip)
 end
 
 function handleDeparture(trip)
@@ -101,7 +102,7 @@ function handleDepartureRequest()
 		return
 	end
 	
-	requestDeparture(config.stationId, destination)
+	requestDeparture(destination)
 end
 
 function handleLavaRequest()
@@ -135,8 +136,14 @@ function handleLavaRequest()
 		return
 	end
 	
-	local request = {class = "lava", source = origin, destination = destination, requestType = "lava", count = count}
-	net.sendMessage("railstationmanager://", "newRequest", request)
+	local request = {
+		class = "lava", 
+		source = origin,
+		destination = destination, 
+		requestType = "lava", 
+		count = count
+	}
+	net.sendMessage(config.router, "newRequest", request)
 	
 	print("Lava request sent. Have a great day!")
 	delayedWriteHeader()
@@ -154,14 +161,13 @@ end
 
 function minecartDetected(eventName, detector, minecartType, minecartName)
 	if detector == config.features.passenger.cartsIn.detector then
-		-- New arrival
 		print(string.format("New arrival: %s", minecartName))
 		local msg = {
-			node = string.format("S%i-arrive", config.stationId),
+			location = config.features.passenger.cartsIn.location,
 			minecartName = minecartName,
 			minecartType = minecartType
 		}
-		net.sendMessage("railrouter://", "minecartDetected", msg)
+		net.sendMessage(config.router, "minecartDetected", msg)
 		return
 	end
 	if detector == config.features.passenger.cartsOut.detector then
@@ -175,7 +181,7 @@ function minecartDetected(eventName, detector, minecartType, minecartName)
 
 		pendingTrip.minecartName = minecartName
 		pendingTrip.minecartType = minecartType
-		net.sendMessage("railrouter://", "tripDeparted", pendingTrip)
+		net.sendMessage(config.router, "tripDeparted", pendingTrip)
 		pendingTrip = nil
 		
 		delayedWriteHeader()
@@ -206,8 +212,9 @@ function onStartup()
 
 	writeHeader()
 	
-	print("Publishing station configuration...")
-	net.sendMessage("railstationmanager://", "stationOnline", config)
+	autostartup.waitForDependencies({{type = "dns", address = config.router}})
+	net.sendMessage(config.router, "stationOnline", config)
+	print(string.format("Station %i online", config.stationId))
 	
 	events.runMessageLoop()
 end

@@ -3,6 +3,7 @@ os.loadAPI("apis/net")
 os.loadAPI("apis/serializer")
 os.loadAPI("apis/wire")
 os.loadAPI("apis/minecartevents")
+os.loadAPI("apis/autostartup")
 os.loadAPI("apis/autoupdater")
 
 function setSwitchOutput(value)
@@ -23,7 +24,8 @@ end
 function minecartDetected(eventName, detector, minecartType, minecartName)
 	print(string.format("Minecart detected: %s", minecartName))
 	local msg = {
-		node = string.format("T%i", config.switchId),
+		switchId = config.switchId,
+		location = config.location,
 		minecartName = minecartName,
 		minecartType = minecartType
 	}
@@ -32,23 +34,36 @@ end
 
 function onStartup()
 	net.registerMessageHandler("setSwitch", setSwitch)
+	events.registerHandler("char", function(evt, pressed)
+		if pressed == "d" then
+			net.sendMessage(config.router, "switchOffline", {id = config.switchId})
+			print(string.format("Switch %i offline", config.switchId))
+			return false
+		end
+		if pressed == "u" then
+			autoupdater.updatePackages(true)
+		end
+	end)
 	minecartevents.registerMinecartHandler(minecartDetected)
 	autoupdater.initialize()
 	
 	dofile("config")
 	print(string.format("RailSwitchOS: Switch %i listening on %s...", config.switchId, net.openModem(config.modem)))
 
-	state = {}
-	events.setTimer(math.random(5), function()
-		state = serializer.readFromFile("state")
-		if state.switch == nil then
-			state.switch = false
-		end
-		setSwitchOutput(state.switch)
-		
-		local msg = {id = config.switchId, computerId = os.computerID()}
-		net.sendMessage("railrouter://", "switchOnline", msg)
-	end)
+	state = serializer.readFromFile("state")
+	if state.switch == nil then
+		state.switch = false
+	end
+	setSwitchOutput(state.switch)
+	
+	autostartup.waitForDependencies({{type = "dns", address = config.router}})
+	net.sendMessage(config.router, "switchOnline", {
+		id = config.switchId,
+		computerId = os.computerID(),
+		location = config.location,
+		divergesTo = config.divergesTo
+	})
+	print(string.format("Switch %i online", config.switchId))
 	
 	events.runMessageLoop()
 end

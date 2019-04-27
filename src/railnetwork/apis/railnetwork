@@ -4,6 +4,10 @@ function formatLocation(location)
     return string.format("%s@%i", location.line, location.position)
 end
 
+function locationsMatch(a, b)
+    return a.line == b.line and a.position == b.position
+end
+
 local railNetwork = {
     addNode = function(self, id, node)
         self.nodes[id] = node
