@@ -18,6 +18,11 @@ function requestDeparture(destination)
 	net.sendMessage(config.router, "newTrip", trip)
 end
 
+function rejectDeparture(trip)
+	print(string.format("Departure rejected: %s", trip.rejectionReason))
+	delayedWriteHeader()
+end
+
 function handleDeparture(trip)
 	if trip.type ~= "passenger" then
 		print(string.format("ERROR: Unrecognized departure type %s; ignoring", trip.type))
@@ -190,6 +195,7 @@ end
 function onStartup()
 	autoupdater.initialize()
 	net.registerMessageHandler("allowDeparture", handleDeparture)
+	net.registerMessageHandler("rejectDeparture", rejectDeparture)
 	net.registerMessageHandler("stationUpdate", handleStationUpdate)
 	minecartevents.registerMinecartHandler(minecartDetected)
 	events.registerHandler("char", function(evt, pressed)

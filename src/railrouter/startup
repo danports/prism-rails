@@ -73,12 +73,12 @@ function checkTrip(trip)
 	
 	local path = network:findRoute(trip)
 	if path == nil then
-		-- TODO: Return an error to the client.
-		log.warn(string.format("No path exists from %s to %s; ignoring trip request", railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination)))
-		return
+		trip.rejectionReason = string.format("No path exists from %s to %s; did you misconfigure a switch or station?", railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination))
+		log.warn(string.format("Rejecting trip request: %s", trip.rejectionReason))
+		net.sendMessage(trip.computerId, "rejectDeparture", trip)
+	else
+		net.sendMessage(trip.computerId, "allowDeparture", trip)
 	end
-
-	net.sendMessage(trip.computerId, "allowDeparture", trip)
 end
 
 function registerTrip(trip)
