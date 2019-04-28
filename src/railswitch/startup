@@ -61,6 +61,7 @@ function onStartup()
 		id = config.switchId,
 		computerId = os.computerID(),
 		location = config.location,
+		continuesTo = config.continuesTo,
 		divergesTo = config.divergesTo
 	})
 	print(string.format("Switch %i online", config.switchId))
