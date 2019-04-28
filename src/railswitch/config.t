@@ -4,7 +4,7 @@ config = {
 	location = {
 		line = "Line",
 		position = 0,
-		direction = -1
+		direction = -1 -- Define continuesTo instead if switch continues to a different line.
 	},
 	divergesTo = {
 		line = "Line",

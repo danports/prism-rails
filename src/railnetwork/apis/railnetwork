@@ -62,6 +62,7 @@ local railNetwork = {
                 local node = sorted[index]
                 graph[formatLocation(node.location)] = node
                 node.edges = node.edges or {}
+                -- If direction is not set or is 0, we assume the line does not continue beyond this point.
                 if node.location.direction > 0 and index < #sorted then
                     table.insert(node.edges, {destination = formatLocation(sorted[index + 1].location)})
                 elseif node.location.direction < 0 and index > 1 then

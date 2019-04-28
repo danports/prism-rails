@@ -161,10 +161,22 @@ function getSwitchNode(id)
 	return string.format("T%i", id)
 end
 
+function getSwitchConnection(location, switchState)
+	if location then
+		return {location = location, switchState = switchState}
+	end
+end
+
 function addSwitchToNetwork(switch)
+	if switch.continuesTo and switch.location.direction then
+		error(string.format("Switch %i defines both continuesTo and location.direction; drop one of these to resolve the conflict", switch.id))
+	end
+	if not switch.divergesTo then
+		error(string.format("Switch %i does not define divergesTo", switch.id))
+	end
 	network:addNode(getSwitchNode(switch.id), {
 		location = switch.location,
-		connections = {{location = switch.divergesTo, switchState = true}}
+		connections = {getSwitchConnection(switch.divergesTo, true), getSwitchConnection(switch.continuesTo, false)}
 	})
 end
 
