@@ -68,16 +68,24 @@ function removeStation(station)
 	stationsChanged()
 end
 
+function validateTrip(trip)
+	if trip.origin then
+		return network:findRoute(trip)
+	end
+	-- We can only check whether the destination is valid.
+	return network:findClosestNode(trip.destination)
+end
+
 function checkTrip(trip)
 	log.info(string.format("New trip: %s at %s departing for %s", trip.type, railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination)))
 	
-	local path = network:findRoute(trip)
-	if path == nil then
-		trip.rejectionReason = string.format("No path exists from %s to %s; did you misconfigure a switch or station?", railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination))
-		log.warn(string.format("Rejecting trip request: %s", trip.rejectionReason))
-		net.sendMessage(trip.computerId, "rejectDeparture", trip)
-	else
+	local result, tripError = validateTrip(trip)
+	if result then
 		net.sendMessage(trip.computerId, "allowDeparture", trip)
+	else
+		log.warn(string.format("Rejecting trip request: %s", tripError))
+		trip.rejectionReason = tripError
+		net.sendMessage(trip.computerId, "rejectDeparture", trip)
 	end
 end
 

@@ -1,0 +1,84 @@
+os.loadAPI("apis/events")
+os.loadAPI("apis/net")
+os.loadAPI("apis/input")
+os.loadAPI("apis/railnetwork")
+os.loadAPI("apis/autostartup")
+os.loadAPI("apis/autoupdater")
+
+function requestDeparture(destination)
+	local trip = {
+		type = "passenger",
+		computerId = os.computerID(),
+		destination = destination
+	}
+	
+	print(string.format("Requesting %s departure to %s...", trip.type, railnetwork.formatLocation(destination)))
+	net.sendMessage(config.router, "newTrip", trip)
+end
+
+function rejectDeparture(trip)
+	print(string.format("Departure rejected: %s", trip.rejectionReason))
+	delayedWriteHeader()
+end
+
+function handleDeparture(trip)
+	if trip.type ~= "passenger" then
+		print(string.format("ERROR: Unrecognized departure type %s; ignoring", trip.type))
+		return
+	end
+	
+    trip.minecartName = config.minecartName
+    net.sendMessage(config.router, "tripDeparted", trip)
+
+	print(string.format("Please place your %s cart on the rails and take off now. Travel safely and have a great day!", config.minecartName))
+    delayedWriteHeader()
+end
+
+function writeHeader()
+	term.clear()
+	term.setCursorPos(1, 1)
+	print(string.format("PocketStationOS: Listening on %s...", config.modem))
+	print()
+	print("Press D to depart.")
+end
+
+function handleDepartureRequest()
+    local destination = input.request({
+        prompt = "Desired destination (e.g. main@500):",
+        validator = railnetwork.parseLocation,
+        invalidPrompt = "Invalid rail network location."
+    })
+	if destination == nil then
+		writeHeader()
+		return
+	end
+	
+	requestDeparture(destination)
+end
+
+function delayedWriteHeader()
+	events.setTimer(5, writeHeader)
+end
+
+function onStartup()
+	autoupdater.initialize()
+	net.registerMessageHandler("allowDeparture", handleDeparture)
+	net.registerMessageHandler("rejectDeparture", rejectDeparture)
+	events.registerHandler("char", function(evt, pressed)
+		if pressed == "d" then
+			handleDepartureRequest()
+		end
+		if pressed == "u" then
+			autoupdater.updatePackages(true)
+		end
+	end)
+
+	dofile("config")
+	config.modem = net.openModem(config.modem)
+	writeHeader()
+	
+	autostartup.waitForDependencies({{type = "dns", address = config.router}})
+	events.runMessageLoop()
+end
+
+onStartup()
