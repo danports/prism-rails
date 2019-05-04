@@ -1,4 +1,4 @@
 config = {
     minecartName = "[Minecart]",
-	router = "railrouter://"
+    router = "railrouter://"
 }

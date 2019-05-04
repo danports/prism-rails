@@ -9,11 +9,10 @@ function formatLocation(location)
 end
 
 function parseLocation(text)
-    for line, position in text:gmatch("^(.+)@(.+)$") do
-        position = tonumber(position)
-        if line and position then
-            return {line = line, position = position}
-        end
+    local line, position = text:match("^(.+)@(.+)$")
+    position = tonumber(position)
+    if line ~= nil and position ~= nil then
+        return {line = line, position = position}
     end
 end
 
