@@ -105,6 +105,7 @@ function RailNetwork:findClosestNode(location)
     if location.position == nil then
         return nil, "Position not specified"
     end
+    self:buildGraph()
     if self.graph[formatLocation(location)] then
         return location
     end
@@ -151,7 +152,6 @@ function RailNetwork:findClosestNode(location)
 end
 
 function RailNetwork:findRoute(trip)
-    self:buildGraph()
     local originNode, originError = self:findClosestNode(trip.origin)
     if not originNode then
         return nil, string.format("Unable to find rail network location for origin %s: %s", formatLocation(trip.origin), originError)
