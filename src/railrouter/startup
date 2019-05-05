@@ -60,6 +60,11 @@ function stationsChanged()
 	end
 end
 
+function sendStationList(args, sender)
+	log.info(string.format("Sending station list to %i", sender))
+	net.sendMessage(sender, "stationUpdate", stations)
+end
+
 function removeStation(station)
 	log.info(string.format("Removing station %i", station.stationId))
 	stations[station.stationId] = nil
@@ -223,6 +228,7 @@ function onStartup()
 	net.registerMessageHandler("minecartDetected", minecartDetected)
 	net.registerMessageHandler("switchOnline", switchOnline)
 	net.registerMessageHandler("switchOffline", switchOffline)
+	net.registerRawMessageHandler("getStations", sendStationList)
 	autoupdater.initialize()
 	
 	dofile("config")

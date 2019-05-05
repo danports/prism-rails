@@ -43,10 +43,24 @@ function writeHeader()
 end
 
 function handleDepartureRequest()
+	for _, station in ipairs(stations) do
+		print(string.format("%i = %s", station.stationId, station.stationName))
+	end
     local destination = input.request({
-        prompt = "Desired destination (e.g. main@500):",
-        validator = railnetwork.parseLocation,
-        invalidPrompt = "Invalid rail network location."
+        prompt = "Destination station or location (e.g. main@500):",
+		validator = function(text)
+			local stationId = tonumber(text)
+			if stationId ~= nil then
+				local station = stations[stationId]
+				if station then
+					return station.features.passenger.cartsIn.location
+				else
+					return nil, string.format("Station %i does not exist.", stationId)
+				end
+			end
+			return railnetwork.parseLocation(text)
+		end,
+        invalidPrompt = "Invalid destination."
     })
 	if destination == nil then
 		writeHeader()
@@ -60,8 +74,14 @@ function delayedWriteHeader()
 	events.setTimer(5, writeHeader)
 end
 
+function handleStationUpdate(data)
+	stations = data
+	print("Station list updated.")
+end
+
 function onStartup()
 	autoupdater.initialize()
+	net.registerMessageHandler("stationUpdate", handleStationUpdate)
 	net.registerMessageHandler("allowDeparture", handleDeparture)
 	net.registerMessageHandler("rejectDeparture", rejectDeparture)
 	events.registerHandler("char", function(evt, pressed)
@@ -75,9 +95,13 @@ function onStartup()
 
 	dofile("config")
 	config.modem = net.openModem(config.modem)
+	stations = {}
 	writeHeader()
 	
 	autostartup.waitForDependencies({{type = "dns", address = config.router}})
+	-- TODO: Subscribe to station list changes. Might also want to store the station list locally.
+	print("Requesting station list...")
+	net.sendMessage(config.router, "getStations", {})
 	events.runMessageLoop()
 end
 
