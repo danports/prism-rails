@@ -164,6 +164,14 @@ function RailNetwork:findRoute(trip)
     if not path then
         return nil, string.format("No path exists between origin %s and destination %s; did you misconfigure a switch or station?", formatLocation(originNode), formatLocation(destinationNode))
     end
+    if not locationsMatch(trip.origin, originNode) then
+        -- Add an edge for the segment between the origin and the first location in the network.
+        table.insert(path, 1, {destination = formatLocation(originNode)})
+    end
+    if not locationsMatch(trip.destination, destinationNode) then
+        -- Add an edge for the segment between the last location in the network and the final destination.
+        table.insert(path, {destination = formatLocation(trip.destination)})
+    end
     return path
 end
 
