@@ -3,6 +3,8 @@ os.loadAPI("apis/net")
 os.loadAPI("apis/serializer")
 os.loadAPI("apis/wire")
 os.loadAPI("apis/minecartevents")
+os.loadAPI("apis/input")
+os.loadAPI("apis/railnetwork")
 os.loadAPI("apis/autostartup")
 os.loadAPI("apis/autoupdater")
 
@@ -11,10 +13,10 @@ function requestDeparture(destination)
 		type = "passenger",
 		computerId = os.computerID(),
 		origin = config.features.passenger.cartsOut.location,
-		destination = stations[destination].features.passenger.cartsIn.location
+		destination = destination
 	}
 	
-	print(string.format("Requesting %s departure to station %i...", trip.type, destination))
+	print(string.format("Requesting %s departure to %s...", trip.type, railnetwork.formatLocation(destination)))
 	net.sendMessage(config.router, "newTrip", trip)
 end
 
@@ -29,6 +31,14 @@ function handleDeparture(trip)
 		return
 	end
 	
+	if config.features.passenger.cartsOut.minecartName then
+		trip.minecartName = config.features.passenger.cartsOut.minecartName
+		net.sendMessage(config.router, "tripDeparted", trip)	
+		print(string.format("Please place your %s cart on the rails and take off now. Travel safely and have a great day!", trip.minecartName))
+		delayedWriteHeader()	
+		return
+	end
+
 	if config.features.passenger.cartsOut.dispenser == nil then
 		print("Please place your cart on the rails and take off now. Travel safely and have a great day!")
 	else
@@ -47,7 +57,9 @@ function writeHeader()
 	term.setCursorPos(1, 1)
 	print(string.format("RailStationOS: Listening on %s...", config.modem))
 	print()
-	print(string.format("Welcome to %s (station %i)!", config.stationName, config.stationId))
+	if config.stationId ~= nil then
+		print(string.format("Welcome to %s (station %i)!", config.stationName, config.stationId))
+	end
 	print("Press D to depart.")
 	print("Press L to dispense liquid.")
 end
@@ -79,6 +91,7 @@ function getStationInput(prompt, filter)
 end
 
 function getNumericInput(prompt)
+	-- TODO: Use input.request instead here.
 	while true do
 		print("Enter " .. prompt .. " or 0 to cancel:")
 		local value = tonumber(read())
@@ -94,14 +107,25 @@ function getNumericInput(prompt)
 end
 
 function handleDepartureRequest()
-	local destination = getStationInput("desired destination", 
-		function(station)
-			if station == config.stationId then
-				return false
-			else
-				return true
+	for _, station in ipairs(stations) do
+		print(string.format("%i = %s", station.stationId, station.stationName))
+	end
+    local destination = input.request({
+        prompt = "Destination station or location (e.g. main@500):",
+		validator = function(text)
+			local stationId = tonumber(text)
+			if stationId ~= nil then
+				local station = stations[stationId]
+				if station then
+					return station.features.passenger.cartsIn.location
+				else
+					return nil, string.format("Station %i does not exist.", stationId)
+				end
 			end
-		end)
+			return railnetwork.parseLocation(text)
+		end,
+        invalidPrompt = "Invalid destination."
+    })
 	if destination == nil then
 		writeHeader()
 		return
@@ -218,8 +242,13 @@ function onStartup()
 	writeHeader()
 	
 	autostartup.waitForDependencies({{type = "dns", address = config.router}})
-	net.sendMessage(config.router, "stationOnline", config)
-	print(string.format("Station %i online", config.stationId))
+	if config.stationId == nil then
+		print("Requesting station list...")
+		net.sendMessage(config.router, "getStations", {})
+	else
+		net.sendMessage(config.router, "stationOnline", config)
+		print(string.format("Station %i online", config.stationId))
+	end
 	
 	events.runMessageLoop()
 end

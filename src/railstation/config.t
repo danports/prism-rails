@@ -1,10 +1,12 @@
 config = {
+	router = "railrouter://",
+	-- Omit stationId and stationName for pocket stations.
 	stationId = 0,
 	stationName = "[Station Name]",
-	router = "railrouter://",
 	features = {
 		passenger = {
 			cartsIn = {
+				-- Omit this section for pocket stations.
 				detector = "", 
 				location = {
 					line = "[Station Arriving Line]", 
@@ -13,8 +15,9 @@ config = {
 				}
 			},
 			cartsOut = {
-				detector = "", 
-				dispenser = {side = "back"}, 
+				-- Omit these and set minecartName instead for pocket stations.
+				detector = "",
+				dispenser = {side = "back"},
 				location = {
 					line = "[Station Departing Line]", 
 					position = 0,
