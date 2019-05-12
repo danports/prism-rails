@@ -36,7 +36,7 @@ Positions on lines are arbitrary and do not need to correspond to GPS coordinate
 The `railrouter` server acts as the core of the rail network, receiving requests from stations and issuing commands to switches. To set up a router:
 1. Place a computer and attach a [Wireless Modem](http://www.computercraft.info/wiki/Wireless_Modem).
 2. [Install Amber](https://github.com/danports/amber#getting-started).
-3. Add the `prism-rails` repository: `> amber repository add https://github.com/danports/prism-rails` (TODO: This doesn't work yet) If you are running an Amber server, add the repository there instead to make it available to all of the computers in your network.
+3. Add the `prism-rails` repository (or, if you are running an [Amber server](https://github.com/danports/amber#server), add the repository there instead to make it available to all of the computers in your network): `> amber repository add https://github.com/danports/prism-rails`
 4. Install the `railrouter` package: `> amber install railrouter`
 5. An editor will open with a blank configuration file; exit the editor to complete the installation.
 6. Reboot. After the computer restarts, it will display `RailRouterOS: Listening on top...` (or whatever the location of your wireless modem is).
@@ -61,7 +61,7 @@ The `railstation` package provides an interface for players to interact with the
 6. Connect the two Digital Detectors to the station computer with some [Wired Modems](http://www.computercraft.info/wiki/Wired_Modem) and [Networking Cable](http://www.computercraft.info/wiki/Networking_Cable). Make sure to right-click the Wired Modems attached to the detectors to activate them when finished. Note the identifiers assigned to the detectors (e.g. `digital_detector_27`); you'll need them in the next step.
 7. Set up the station computer:
    1. [Install Amber](https://github.com/danports/amber#getting-started) on the station computer.
-   2. Add the `prism-rails` repository: `> amber repository add https://github.com/danports/prism-rails` (TODO: This doesn't work yet) If you are running an Amber server, add the repository there instead to make it available to all of the computers in your network.
+   2. Add the `prism-rails` repository (or, if you are running an [Amber server](https://github.com/danports/amber#server), add the repository there instead to make it available to all of the computers in your network): `> amber repository add https://github.com/danports/prism-rails`
    3. Install the `railstation` package: `> amber install railstation`
    4. An editor will open with a configuration file; update the necessary values and then save the file and exit the editor:
       1. Set `stationId`. Generally, stations should be numbered sequentially, starting with `1`.
@@ -87,7 +87,7 @@ To use a station computer once configured, simply walk up to it and follow the i
 You can install `railstation` on a pocket computer if you want to request a departure for a named minecraft in your inventory. This can be useful if you want to visit portions of your rail network that are under construction, in which you have not yet built stations. To do so:
 1. Craft a [Pocket Computer](http://computercraft.info/wiki/Pocket_Computer) with a [Wireless Modem](http://www.computercraft.info/wiki/Wireless_Modem).
 2. [Install Amber](https://github.com/danports/amber#getting-started).
-3. Add the `prism-rails` repository: `> amber repository add https://github.com/danports/prism-rails` (TODO: This doesn't work yet) If you are running an Amber server, add the repository there instead to make it available to all of the computers in your network.
+3. Add the `prism-rails` repository (or, if you are running an [Amber server](https://github.com/danports/amber#server), add the repository there instead to make it available to all of the computers in your network): `> amber repository add https://github.com/danports/prism-rails`
 4. Install the `railstation` package: `> amber install railstation`
 5. Delete `stationId` and `stationName` from the configuration file and set `cartsOut.minecartName` to the name of the minecart in your inventory. Save the file and exit the editor to complete the installation.
 6. Reboot. After the computer restarts, it will display `RailStationOS: Listening on back...`.
@@ -99,7 +99,7 @@ Computers running the `railswitch` package are responsible for detecting incomin
 3. Place a Digital Detector under one of the tracks approaching the Switch Track and connect it to the computer with [Wired Modems](http://www.computercraft.info/wiki/Wired_Modem) and [Networking Cable](http://www.computercraft.info/wiki/Networking_Cable). Make sure to right-click the Wired Modem attached to the detector to activate it when finished.
 4. Set up the switch computer:
    1. [Install Amber](https://github.com/danports/amber#getting-started) on the switch computer.
-   2. Add the `prism-rails` repository: `> amber repository add https://github.com/danports/prism-rails` (TODO: This doesn't work yet) If you are running an Amber server, add the repository there instead to make it available to all of the computers in your network.
+   2. Add the `prism-rails` repository (or, if you are running an [Amber server](https://github.com/danports/amber#server), add the repository there instead to make it available to all of the computers in your network): `> amber repository add https://github.com/danports/prism-rails`
    3. Install the `railswitch` package: `> amber install railswitch`
    4. An editor will open with a configuration file; update the necessary values and then save the file and exit the editor:
       1. Set `switchId`. Generally, switches should be numbered sequentially, starting with `1`.
