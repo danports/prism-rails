@@ -6,6 +6,7 @@
 		{name = "serializer"},
 		{name = "wire"},
 		{name = "minecartevents"},
+		{name = "railnetwork"},
 		{name = "autostartup"},
 		{name = "amber-autoupdater"}
 	}

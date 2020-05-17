@@ -3,6 +3,7 @@ os.loadAPI("apis/net")
 os.loadAPI("apis/serializer")
 os.loadAPI("apis/wire")
 os.loadAPI("apis/minecartevents")
+os.loadAPI("apis/railnetwork")
 os.loadAPI("apis/autostartup")
 os.loadAPI("apis/autoupdater")
 
@@ -48,7 +49,8 @@ function onStartup()
 	autoupdater.initialize()
 	
 	dofile("config")
-	print(string.format("RailSwitchOS: Switch %i listening on %s...", config.switchId, net.openModem(config.modem)))
+	print(string.format("RailSwitchOS: Switch %i (%s) listening on %s...", 
+		config.switchId, railnetwork.formatLocation(config.location), net.openModem(config.modem)))
 
 	state = serializer.readFromFile("state")
 	if state.switch == nil then
