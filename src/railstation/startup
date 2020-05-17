@@ -58,7 +58,8 @@ function selectDepartureRoute(trip)
 		table.insert(routeOptions, tags)
 	end
 	if #routeOptions == 1 then
-		print(string.format("Only one route to %s; preparing departure: %s", trip.destination, formatRouteTags(routeOptions[1])))
+		print(string.format("Only one route to %s; preparing departure: %s", 
+			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1])))
 		trip.routes = nil
 		handleDeparture(trip)
 		return
