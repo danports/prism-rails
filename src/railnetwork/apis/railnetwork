@@ -20,6 +20,13 @@ function locationsMatch(a, b)
     return a.line == b.line and a.position == b.position
 end
 
+function distanceBetween(a, b)
+    if a.line == b.line then
+        return math.abs(a.position - b.position)
+    end
+    return 1 -- There's really no way to know.
+end
+
 local RailNetwork = {}
 function RailNetwork:addNode(id, node)
     self.nodes[id] = node
@@ -53,12 +60,19 @@ function RailNetwork:buildGraph()
         return line[location.position]
     end
 
+    local tags = {}
     for id, node in pairs(self.nodes) do
         node.edges = {}
         if node.connections then
             for _, connection in pairs(node.connections) do
                 establishNode(connection.location)
                 connection.destination = formatLocation(connection.location)
+                connection.distance = connection.distance or distanceBetween(node.location, connection.location)
+                if connection.tags then
+                    for tag in pairs(connection.tags) do
+                        tags[tag] = true
+                    end
+                end
                 table.insert(node.edges, connection)
             end
         end
@@ -93,6 +107,7 @@ function RailNetwork:buildGraph()
 
     self.graph = graph
     self.lines = locationsByLine
+    self.tags = tags
 end
 
 function RailNetwork:findClosestNode(location)
@@ -160,7 +175,20 @@ function RailNetwork:findRoute(trip)
     if not destinationNode then
         return nil, string.format("Unable to find rail network location for destination %s: %s", formatLocation(trip.destination), destinationError)
     end
-    local path = graph.shortestPath(self.graph, {origin = formatLocation(originNode), destination = formatLocation(destinationNode)})
+    local function edgeWeight(edge)
+        local distance = edge.distance or 1
+        if edge.tags and trip.tags then
+            for tag, weight in pairs(edge.tags) do
+                if trip.tags[tag] then
+                    distance = distance * weight
+                else
+                    return math.huge
+                end
+            end
+        end
+        return distance
+    end
+    local path = graph.shortestPath(self.graph, {origin = formatLocation(originNode), destination = formatLocation(destinationNode)}, edgeWeight)
     if not path then
         return nil, string.format("No path exists between origin %s and destination %s; did you misconfigure a switch or station?", formatLocation(originNode), formatLocation(destinationNode))
     end
@@ -173,6 +201,50 @@ function RailNetwork:findRoute(trip)
         table.insert(path, {destination = formatLocation(trip.destination)})
     end
     return path
+end
+
+local function routeMatches(a, b)
+    if #a ~= #b then
+        return false
+    end
+    for key, edge in ipairs(a) do
+        if edge.destination ~= b[key].destination then
+            return false
+        end
+    end
+    return true
+end
+
+local function findMatchingRoute(routes, route)
+    for key, existing in pairs(routes) do
+        if routeMatches(existing, route) then
+            return key, existing
+        end
+    end
+end
+
+function RailNetwork:findRoutes(trip)
+    self:buildGraph()
+    local routes = {}
+    local function addRoute(trip, tripTags)
+        trip.tags = tripTags
+        local route, routeError = self:findRoute(trip)
+        if route then
+            local key = findMatchingRoute(routes, route)
+            if key then
+                table.insert(key, tripTags)
+            else
+                routes[{tripTags}] = route
+            end
+        end
+        trip.tags = nil
+    end
+
+    addRoute(trip, {})
+    for tag in pairs(self.tags) do
+        addRoute({[tag] = true})
+    end
+    return routes
 end
 
 local metatable = {

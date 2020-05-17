@@ -25,6 +25,56 @@ function rejectDeparture(trip)
 	delayedWriteHeader()
 end
 
+function formatTags(tags)
+	local parts = {}
+	for tag, enabled in pairs(tags) do
+		local part = tag
+		if not enabled then
+			part = "NOT " .. part
+		end
+		table.insert(parts, part)
+	end
+	if next(parts) then
+		return table.concat(parts, ", ")
+	end
+	return "normal"
+end
+
+function formatRouteTags(tags)
+	local parts = {}
+	for _, tags in ipairs(tags) do
+		table.insert(parts, formatTags(tags))
+	end
+	return table.concat(parts, "; ")
+end
+
+function selectDepartureRoute(trip)
+	if not trip.routes then
+		handleDeparture(trip)
+		return
+	end
+	local routeOptions = {}
+	for tags, route in pairs(trip.routes) do
+		table.insert(routeOptions, tags)
+	end
+	if #routeOptions == 1 then
+		trip.routes = nil
+		handleDeparture(trip)
+		return
+	end
+	local selected = input.menu({
+		prompt = "Select your route:",
+		items = routeOptions,
+		formatter = formatRouteTags
+	})
+	if not selected then
+		return
+	end
+	trip.routes = nil
+	trip.tags = selected[1]
+	handleDeparture(trip)
+end
+
 function handleDeparture(trip)
 	if trip.type ~= "passenger" then
 		print(string.format("ERROR: Unrecognized departure type %s; ignoring", trip.type))
@@ -183,9 +233,9 @@ function delayedWriteHeader()
 end
 
 function handleStationUpdate(data)
-	print("Updating station list...")
 	stations = data
 	serializer.writeToFile("stations", stations)
+	print("Station list updated.")
 end
 
 function minecartDetected(eventName, detector, minecartType, minecartName)
@@ -218,7 +268,7 @@ end
 
 function onStartup()
 	autoupdater.initialize()
-	net.registerMessageHandler("allowDeparture", handleDeparture)
+	net.registerMessageHandler("allowDeparture", selectDepartureRoute)
 	net.registerMessageHandler("rejectDeparture", rejectDeparture)
 	net.registerMessageHandler("stationUpdate", handleStationUpdate)
 	minecartevents.registerMinecartHandler(minecartDetected)

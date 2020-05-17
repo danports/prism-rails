@@ -74,8 +74,13 @@ function removeStation(station)
 end
 
 function validateTrip(trip)
-	if trip.origin then
-		return network:findRoute(trip)
+	if trip.origin and trip.destination then
+		local routes = network:findRoutes(trip)
+		if next(routes) then
+			trip.routes = routes
+			return true
+		end
+        return nil, string.format("No routes exist between origin %s and destination %s; did you misconfigure a switch or station?", railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination))
 	end
 	-- We can only check whether the destination is valid.
 	return network:findClosestNode(trip.destination)
@@ -127,19 +132,19 @@ function minecartDetected(detection)
 
 	local switch = switches[detection.switchId]
 	if switch == nil or switch.computerId == nil then
-		log.warn(string.format("Detection at switch %i, which was not found; ignoring detection", detection.switchId))
+		log.warn(string.format("Ignoring detection: Detection at switch %i, which was not found", detection.switchId))
 		return
 	end
 
-	local path = network:findRoute({origin = detection.location, destination = trip.destination})
-	if path == nil then
-		log.warn(string.format("No path exists from %s to %s; ignoring detection", railnetwork.formatLocation(detection.location), railnetwork.formatLocation(trip.destination)))
+	local path, pathError = network:findRoute({origin = detection.location, destination = trip.destination, tags = trip.tags})
+	if not path then
+		log.warn(string.format("Ignoring detection: %s", pathError))
 		return
 	end
 	
 	local edge = path[1]
 	if edge == nil then
-		log.warn(string.format("Path to destination %s is empty; ignoring detection", railnetwork.formatLocation(trip.destination)))
+		log.warn(string.format("Ignoring detection: Path to destination %s is empty", railnetwork.formatLocation(trip.destination)))
 		return
 	end
 	
