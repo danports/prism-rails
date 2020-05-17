@@ -4,12 +4,16 @@ config = {
 	location = {
 		line = "Line",
 		position = 0,
-		direction = -1 -- Define continuesTo instead if switch continues to a different line.
+		-- Define continuesTo instead if switch continues to a different line.
+		direction = -1
 	},
 	divergesTo = {
-		line = "Line",
-		position = 0,
-		direction = 1
+		location = {
+			line = "Line",
+			position = 0,
+			direction = 1
+		}
+		-- Optional: Define distance and tags.
 	},
 	switch = {side = "back"},
 	slowTrack = {side = "right"}

@@ -181,7 +181,12 @@ end
 
 function getSwitchConnection(location, switchState)
 	if location then
-		return {location = location, switchState = switchState}
+		return {
+			location = location.location or location, -- For backwards compatibility with older switches
+			switchState = switchState,
+			distance = location.distance,
+			tags = location.tags
+		}
 	end
 end
 
