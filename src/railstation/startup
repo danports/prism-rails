@@ -61,8 +61,7 @@ function selectDepartureRoute(trip)
 	if #routeOptions == 1 then
 		local key, route = next(trip.routes)
 		print(string.format("Only one route to %s (%s); preparing departure: %s", 
-			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1]),
-			graph.formatPath(railnetwork.formatLocation(trip.origin), route)))
+			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1]), graph.formatPath(route)))
 		trip.routes = nil
 		handleDeparture(trip)
 		return
@@ -75,9 +74,9 @@ function selectDepartureRoute(trip)
 	if not selected then
 		return
 	end
+	print(string.format("Preparing departure: %s", graph.formatPath(trip.routes[selected])))
 	trip.routes = nil
 	trip.tags = selected[1]
-	print(string.format("Preparing departure: %s", graph.formatPath(railnetwork.formatLocation(trip.origin), trip.routes[selected])))
 	handleDeparture(trip)
 end
 

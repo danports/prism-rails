@@ -98,9 +98,15 @@ function RailNetwork:buildGraph()
             -- If direction is not set or is 0, we assume the line does not continue beyond this point.
             local direction = node.location.direction
             if direction and direction > 0 and index < #sorted then
-                table.insert(node.edges, {destination = formatLocation(sorted[index + 1].location)})
+                table.insert(node.edges, {
+                    destination = formatLocation(sorted[index + 1].location),
+                    distance = distanceBetween(node.location, sorted[index + 1].location)
+                })
             elseif direction and direction < 0 and index > 1 then
-                table.insert(node.edges, {destination = formatLocation(sorted[index - 1].location)})
+                table.insert(node.edges, {
+                    destination = formatLocation(sorted[index - 1].location),
+                    distance = distanceBetween(node.location, sorted[index - 1].location)
+                })
             end
         end
     end
@@ -194,21 +200,29 @@ function RailNetwork:findRoute(trip)
     end
     if not locationsMatch(trip.origin, originNode) then
         -- Add an edge for the segment between the origin and the first location in the network.
-        table.insert(path, 1, {edge = {destination = formatLocation(originNode)}, weight = 1})
+        path.origin = formatLocation(trip.origin)
+        table.insert(path.edges, 1, {
+            edge = {destination = formatLocation(originNode)},
+            weight = 1
+        })
     end
     if not locationsMatch(trip.destination, destinationNode) then
         -- Add an edge for the segment between the last location in the network and the final destination.
-        table.insert(path, {edge = {destination = formatLocation(trip.destination)}, weight = 1})
+        path.destination = formatLocation(trip.destination)
+        table.insert(path.edges, {
+            edge = {destination = formatLocation(trip.destination)},
+            weight = 1
+        })
     end
     return path
 end
 
 local function routeMatches(a, b)
-    if #a ~= #b then
+    if #a.edges ~= #b.edges then
         return false
     end
-    for key, edge in ipairs(a) do
-        if edge.destination ~= b[key].destination then
+    for key, edge in ipairs(a.edges) do
+        if edge.destination ~= b.edges[key].destination then
             return false
         end
     end
@@ -242,7 +256,7 @@ function RailNetwork:findRoutes(trip)
 
     addRoute(trip, {})
     for tag in pairs(self.tags) do
-        addRoute({[tag] = true})
+        addRoute(trip, {[tag] = true})
     end
     return routes
 end
