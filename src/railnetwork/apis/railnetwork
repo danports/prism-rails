@@ -179,9 +179,9 @@ function RailNetwork:findRoute(trip)
         local distance = edge.distance or 1
         if edge.tags and trip.tags then
             for tag, weight in pairs(edge.tags) do
-                if trip.tags[tag] then
+                if trip.tags[tag] == true then
                     distance = distance * weight
-                else
+                elseif trip.tags[tag] == false then
                     return math.huge
                 end
             end
@@ -194,11 +194,11 @@ function RailNetwork:findRoute(trip)
     end
     if not locationsMatch(trip.origin, originNode) then
         -- Add an edge for the segment between the origin and the first location in the network.
-        table.insert(path, 1, {destination = formatLocation(originNode)})
+        table.insert(path, 1, {edge = {destination = formatLocation(originNode)}, weight = 1})
     end
     if not locationsMatch(trip.destination, destinationNode) then
         -- Add an edge for the segment between the last location in the network and the final destination.
-        table.insert(path, {destination = formatLocation(trip.destination)})
+        table.insert(path, {edge = {destination = formatLocation(trip.destination)}, weight = 1})
     end
     return path
 end

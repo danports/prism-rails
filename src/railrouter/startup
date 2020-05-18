@@ -148,7 +148,7 @@ function minecartDetected(detection)
 		return
 	end
 	
-	local switchState = edge.switchState or false
+	local switchState = edge.edge.switchState or false
 	log.info(string.format("Setting switch %i to %s", detection.switchId, tostring(switchState)))
 	net.sendMessage(switch.computerId, "setSwitch", {state = switchState})
 end

@@ -4,6 +4,7 @@ os.loadAPI("apis/serializer")
 os.loadAPI("apis/wire")
 os.loadAPI("apis/minecartevents")
 os.loadAPI("apis/input")
+os.loadAPI("apis/graph")
 os.loadAPI("apis/railnetwork")
 os.loadAPI("apis/autostartup")
 os.loadAPI("apis/autoupdater")
@@ -58,8 +59,10 @@ function selectDepartureRoute(trip)
 		table.insert(routeOptions, tags)
 	end
 	if #routeOptions == 1 then
-		print(string.format("Only one route to %s; preparing departure: %s", 
-			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1])))
+		local key, route = next(trip.routes)
+		print(string.format("Only one route to %s (%s); preparing departure: %s", 
+			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1]),
+			graph.formatPath(railnetwork.formatLocation(trip.origin), route)))
 		trip.routes = nil
 		handleDeparture(trip)
 		return
@@ -74,6 +77,7 @@ function selectDepartureRoute(trip)
 	end
 	trip.routes = nil
 	trip.tags = selected[1]
+	print(string.format("Preparing departure: %s", graph.formatPath(railnetwork.formatLocation(trip.origin), trip.routes[selected])))
 	handleDeparture(trip)
 end
 
