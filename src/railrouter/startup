@@ -142,7 +142,7 @@ function minecartDetected(detection)
 		return
 	end
 	
-	local edge = next(path.edges)
+	local edge = path.edges[1]
 	if edge == nil then
 		log.warn(string.format("Ignoring detection: Path to destination %s is empty", railnetwork.formatLocation(trip.destination)))
 		return
