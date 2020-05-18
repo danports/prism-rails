@@ -183,11 +183,12 @@ function RailNetwork:findRoute(trip)
     end
     local function edgeWeight(edge)
         local distance = edge.distance or 1
-        if edge.tags and trip.tags then
-            for tag, weight in pairs(edge.tags) do
-                if trip.tags[tag] == true then
-                    distance = distance * weight
-                elseif trip.tags[tag] == false then
+        if trip.tags then
+            local edgeTags = edge.tags or {}
+            for tag, weight in pairs(trip.tags) do
+                if weight then
+                    distance = distance * (edgeTags[tag] or weight)
+                elseif edgeTags[tag] then
                     return math.huge
                 end
             end
@@ -237,7 +238,7 @@ local function findMatchingRoute(routes, route)
     end
 end
 
-function RailNetwork:findRoutes(trip)
+function RailNetwork:findRoutes(trip, tagWeight)
     self:buildGraph()
     local routes = {}
     local function addRoute(trip, tripTags)
@@ -255,8 +256,9 @@ function RailNetwork:findRoutes(trip)
     end
 
     addRoute(trip, {})
+    tagWeight = tagWeight or 2
     for tag in pairs(self.tags) do
-        addRoute(trip, {[tag] = true})
+        addRoute(trip, {[tag] = tagWeight})
     end
     return routes
 end
