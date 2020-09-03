@@ -30,18 +30,32 @@ end
 local RailNetwork = {}
 function RailNetwork:addNode(id, node)
     self.nodes[id] = node
-    self.graph = nil
-    self.lines = nil
+    self:clearGraph()
 end
 
 function RailNetwork:removeNode(id)
     self.nodes[id] = nil
+    self:clearGraph()
+end
+
+function RailNetwork:addLine(id, line)
+    self.lines[id] = line
+    self:clearGraph()
+end
+
+function RailNetwork:removeLine(id)
+    self.lines[id] = nil
+    self:clearGraph()
+end
+
+function RailNetwork:clearGraph()
     self.graph = nil
-    self.lines = nil
+    self.lineNodes = nil
+    self.tags = nil
 end
 
 function RailNetwork:buildGraph()
-    if self.graph and self.lines then
+    if self.graph then
         return
     end
     local lines = {}
@@ -60,21 +74,28 @@ function RailNetwork:buildGraph()
         return line[location.position]
     end
 
-    local tags = {}
+    local allTags = {}
+    local function establishTags(tags)
+        for tag in pairs(tags or {}) do
+            allTags[tag] = true
+        end
+    end
+
+    for id, line in pairs(self.lines) do
+        establishTags(line.tags)
+    end
+
     for id, node in pairs(self.nodes) do
         node.edges = {}
-        if node.connections then
-            for _, connection in pairs(node.connections) do
-                establishNode(connection.location)
-                connection.destination = formatLocation(connection.location)
-                connection.distance = connection.distance or distanceBetween(node.location, connection.location)
-                if connection.tags then
-                    for tag in pairs(connection.tags) do
-                        tags[tag] = true
-                    end
-                end
-                table.insert(node.edges, connection)
+        for _, connection in pairs(node.connections or {}) do
+            establishNode(connection.location)
+            establishTags(connection.tags)
+            connection.destination = formatLocation(connection.location)
+            connection.distance = connection.distance or distanceBetween(node.location, connection.location)
+            if node.location.line == connection.location.line and self.lines[node.location.line] then
+                connection.inheritedTags = self.lines[node.location.line].tags
             end
+            table.insert(node.edges, connection)
         end
         establishNode(node.location, node)
     end
@@ -82,6 +103,10 @@ function RailNetwork:buildGraph()
     local graph = {}
     local locationsByLine = {}
     for line, lineNodes in pairs(lines) do
+        local lineTags
+        if self.lines[line] then
+            lineTags = self.lines[line].tags
+        end
         local sorted = {}
         local positions = {}
         locationsByLine[line] = positions
@@ -100,20 +125,22 @@ function RailNetwork:buildGraph()
             if direction and direction > 0 and index < #sorted then
                 table.insert(node.edges, {
                     destination = formatLocation(sorted[index + 1].location),
-                    distance = distanceBetween(node.location, sorted[index + 1].location)
+                    distance = distanceBetween(node.location, sorted[index + 1].location),
+                    inheritedTags = lineTags
                 })
             elseif direction and direction < 0 and index > 1 then
                 table.insert(node.edges, {
                     destination = formatLocation(sorted[index - 1].location),
-                    distance = distanceBetween(node.location, sorted[index - 1].location)
+                    distance = distanceBetween(node.location, sorted[index - 1].location),
+                    inheritedTags = lineTags
                 })
             end
         end
     end
 
     self.graph = graph
-    self.lines = locationsByLine
-    self.tags = tags
+    self.lineNodes = locationsByLine
+    self.tags = allTags
 end
 
 function RailNetwork:findClosestNode(location)
@@ -130,11 +157,8 @@ function RailNetwork:findClosestNode(location)
     if self.graph[formatLocation(location)] then
         return location
     end
-    local line = self.lines[location.line]
-    if not line then
-        return nil, string.format("Line %s does not exist", location.line)
-    end
-    if not next(line) then
+    local line = self.lineNodes[location.line]
+    if not line or not next(line) then
         return nil, string.format("Line %s has no defined locations", location.line)
     end
     if location.position < line[1].position then
@@ -185,10 +209,11 @@ function RailNetwork:findRoute(trip)
         local distance = edge.distance or 1
         if trip.tags then
             local edgeTags = edge.tags or {}
+            local inheritedTags = edge.inheritedTags or {}
             for tag, weight in pairs(trip.tags) do
                 if weight then
-                    distance = distance * (edgeTags[tag] or weight)
-                elseif edgeTags[tag] then
+                    distance = distance * (edgeTags[tag] or inheritedTags[tag] or weight)
+                elseif edgeTags[tag] or inheritedTags[tag] then
                     return math.huge
                 end
             end
@@ -268,5 +293,5 @@ local metatable = {
 }
 
 function new()
-    return setmetatable({nodes = {}}, metatable)
+    return setmetatable({lines = {}, nodes = {}}, metatable)
 end

@@ -223,12 +223,16 @@ function buildRailNetwork()
 	for _, station in pairs(stations) do
 		addStationToNetwork(station)
 	end
+	for id, line in pairs(lines) do
+		network:addLine(id, line)
+	end
 end
 
 function onStartup()
 	trips = serializer.readFromFile("trips")
 	switches = serializer.readFromFile("switches")
 	stations = serializer.readFromFile("stations")
+	lines = serializer.readFromFile("lines")
 	buildRailNetwork()
 	net.registerMessageHandler("newRequest", notifyNewRequest)
 	net.registerMessageHandler("stationOnline", updateStation)
