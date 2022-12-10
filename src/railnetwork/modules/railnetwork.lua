@@ -1,14 +1,16 @@
-os.loadAPI("apis/graph")
+package.path = package.path .. ";/modules/?;/modules/?.lua;/modules/?/init.lua"
+local graph = require("graph")
+local railnetwork = {}
 
 -- TODO: Make this into an object with a metatable.
-function formatLocation(location)
+function railnetwork.railnetwork.formatLocation(location)
     if location then
         return string.format("%s@%i", location.line, location.position)
     end
     return "???"
 end
 
-function parseLocation(text)
+function railnetwork.parseLocation(text)
     local line, position = text:match("^(.+)@(.+)$")
     position = tonumber(position)
     if line ~= nil and position ~= nil then
@@ -16,11 +18,11 @@ function parseLocation(text)
     end
 end
 
-function locationsMatch(a, b)
+function railnetwork.locationsMatch(a, b)
     return a.line == b.line and a.position == b.position
 end
 
-function distanceBetween(a, b)
+function railnetwork.distanceBetween(a, b)
     if a.line == b.line then
         return math.abs(a.position - b.position)
     end
@@ -28,38 +30,38 @@ function distanceBetween(a, b)
 end
 
 local RailNetwork = {}
-function RailNetwork:addNode(id, node)
+function railnetwork.RailNetwork:addNode(id, node)
     self.nodes[id] = node
     self:clearGraph()
 end
 
-function RailNetwork:removeNode(id)
+function railnetwork.RailNetwork:removeNode(id)
     self.nodes[id] = nil
     self:clearGraph()
 end
 
-function RailNetwork:addLine(id, line)
+function railnetwork.RailNetwork:addLine(id, line)
     self.lines[id] = line
     self:clearGraph()
 end
 
-function RailNetwork:removeLine(id)
+function railnetwork.RailNetwork:removeLine(id)
     self.lines[id] = nil
     self:clearGraph()
 end
 
-function RailNetwork:clearGraph()
+function railnetwork.RailNetwork:clearGraph()
     self.graph = nil
     self.lineNodes = nil
     self.tags = nil
 end
 
-function RailNetwork:buildGraph()
+function railnetwork.RailNetwork:buildGraph()
     if self.graph then
         return
     end
     local lines = {}
-    local function establishNode(location, node)
+    function railnetwork.establishNode(location, node)
         local lineName = location.line
         local line = lines[lineName]
         if not line then
@@ -68,36 +70,36 @@ function RailNetwork:buildGraph()
         end
         local existing = line[location.position]
         if node and existing and existing.edges then
-            error(string.format("Conflicting nodes defined at %s", formatLocation(location)))
+            error(string.format("Conflicting nodes defined at %s", railnetwork.railnetwork.formatLocation(location)))
         end
         line[location.position] = node or existing or {location = location}
         return line[location.position]
     end
 
     local allTags = {}
-    local function establishTags(tags)
+    function railnetwork.establishTags(tags)
         for tag in pairs(tags or {}) do
             allTags[tag] = true
         end
     end
 
-    for id, line in pairs(self.lines) do
-        establishTags(line.tags)
+    for _, line in pairs(self.lines) do
+        railnetwork.establishTags(line.tags)
     end
 
-    for id, node in pairs(self.nodes) do
+    for _, node in pairs(self.nodes) do
         node.edges = {}
         for _, connection in pairs(node.connections or {}) do
-            establishNode(connection.location)
-            establishTags(connection.tags)
-            connection.destination = formatLocation(connection.location)
-            connection.distance = connection.distance or distanceBetween(node.location, connection.location)
+            railnetwork.establishNode(connection.location)
+            railnetwork.establishTags(connection.tags)
+            connection.destination = railnetwork.railnetwork.formatLocation(connection.location)
+            connection.distance = connection.distance or railnetwork.distanceBetween(node.location, connection.location)
             if node.location.line == connection.location.line and self.lines[node.location.line] then
                 connection.inheritedTags = self.lines[node.location.line].tags
             end
             table.insert(node.edges, connection)
         end
-        establishNode(node.location, node)
+        railnetwork.establishNode(node.location, node)
     end
 
     local graph = {}
@@ -110,28 +112,28 @@ function RailNetwork:buildGraph()
         local sorted = {}
         local positions = {}
         locationsByLine[line] = positions
-        for position, node in pairs(lineNodes) do
+        for _, node in pairs(lineNodes) do
             table.insert(sorted, node)
         end
-        table.sort(sorted, function(a, b) 
+        table.sort(sorted, function(a, b)
             return a.location.position < b.location.position
         end)
         for index, node in ipairs(sorted) do
-            graph[formatLocation(node.location)] = node
+            graph[railnetwork.railnetwork.formatLocation(node.location)] = node
             table.insert(positions, node.location)
             node.edges = node.edges or {}
             -- If direction is not set or is 0, we assume the line does not continue beyond this point.
             local direction = node.location.direction
             if direction and direction > 0 and index < #sorted then
                 table.insert(node.edges, {
-                    destination = formatLocation(sorted[index + 1].location),
-                    distance = distanceBetween(node.location, sorted[index + 1].location),
+                    destination = railnetwork.railnetwork.formatLocation(sorted[index + 1].location),
+                    distance = railnetwork.distanceBetween(node.location, sorted[index + 1].location),
                     inheritedTags = lineTags
                 })
             elseif direction and direction < 0 and index > 1 then
                 table.insert(node.edges, {
-                    destination = formatLocation(sorted[index - 1].location),
-                    distance = distanceBetween(node.location, sorted[index - 1].location),
+                    destination = railnetwork.railnetwork.formatLocation(sorted[index - 1].location),
+                    distance = railnetwork.distanceBetween(node.location, sorted[index - 1].location),
                     inheritedTags = lineTags
                 })
             end
@@ -143,7 +145,7 @@ function RailNetwork:buildGraph()
     self.tags = allTags
 end
 
-function RailNetwork:findClosestNode(location)
+function railnetwork.RailNetwork:findClosestNode(location)
     if not location then
         return nil, "Location not specified"
     end
@@ -154,7 +156,7 @@ function RailNetwork:findClosestNode(location)
         return nil, "Position not specified"
     end
     self:buildGraph()
-    if self.graph[formatLocation(location)] then
+    if self.graph[railnetwork.railnetwork.formatLocation(location)] then
         return location
     end
     local line = self.lineNodes[location.line]
@@ -165,7 +167,7 @@ function RailNetwork:findClosestNode(location)
         if line[1].direction and line[1].direction < 0 then
             return line[1]
         else
-            return nil, string.format("Inaccessible location %s: first position %i on this line does not connect here", formatLocation(location), line[1].position)
+            return nil, string.format("Inaccessible location %s: first position %i on this line does not connect here", railnetwork.railnetwork.formatLocation(location), line[1].position)
         end
     end
     for index, lineLocation in ipairs(line) do
@@ -181,7 +183,7 @@ function RailNetwork:findClosestNode(location)
                     elseif nextLocation.direction and nextLocation.direction < 0 then
                         return nextLocation
                     else
-                        return nil, string.format("Inaccessible location %s: neighboring positions %i and %i on this line do not connect here", formatLocation(location), lineLocation.position, nextLocation.position)
+                        return nil, string.format("Inaccessible location %s: neighboring positions %i and %i on this line do not connect here", railnetwork.railnetwork.formatLocation(location), lineLocation.position, nextLocation.position)
                     end
                 end
             else
@@ -189,23 +191,23 @@ function RailNetwork:findClosestNode(location)
                 if lineLocation.direction and lineLocation.direction > 0 then
                     return lineLocation
                 else
-                    return nil, string.format("Inaccessible location %s: last position %i on this line does not connect here", formatLocation(location), lineLocation.position)
-                end        
+                    return nil, string.format("Inaccessible location %s: last position %i on this line does not connect here", railnetwork.railnetwork.formatLocation(location), lineLocation.position)
+                end
             end
         end
     end
 end
 
-function RailNetwork:findRoute(trip)
+function railnetwork.RailNetwork:findRoute(trip)
     local originNode, originError = self:findClosestNode(trip.origin)
     if not originNode then
-        return nil, string.format("Unable to find rail network location for origin %s: %s", formatLocation(trip.origin), originError)
+        return nil, string.format("Unable to find rail network location for origin %s: %s", railnetwork.railnetwork.formatLocation(trip.origin), originError)
     end
     local destinationNode, destinationError = self:findClosestNode(trip.destination)
     if not destinationNode then
-        return nil, string.format("Unable to find rail network location for destination %s: %s", formatLocation(trip.destination), destinationError)
+        return nil, string.format("Unable to find rail network location for destination %s: %s", railnetwork.railnetwork.formatLocation(trip.destination), destinationError)
     end
-    local function edgeWeight(edge)
+    function railnetwork.edgeWeight(edge)
         local distance = edge.distance or 1
         if trip.tags then
             local edgeTags = edge.tags or {}
@@ -220,30 +222,30 @@ function RailNetwork:findRoute(trip)
         end
         return distance
     end
-    local path = graph.shortestPath(self.graph, {origin = formatLocation(originNode), destination = formatLocation(destinationNode)}, edgeWeight)
+    local path = graph.shortestPath(self.graph, {origin = railnetwork.formatLocation(originNode), destination = railnetwork.formatLocation(destinationNode)}, railnetwork.edgeWeight)
     if not path then
-        return nil, string.format("No path exists between origin %s and destination %s; did you misconfigure a switch or station?", formatLocation(originNode), formatLocation(destinationNode))
+        return nil, string.format("No path exists between origin %s and destination %s; did you misconfigure a switch or station?", railnetwork.formatLocation(originNode), railnetwork.formatLocation(destinationNode))
     end
-    if not locationsMatch(trip.origin, originNode) then
+    if not railnetwork.locationsMatch(trip.origin, originNode) then
         -- Add an edge for the segment between the origin and the first location in the network.
-        path.origin = formatLocation(trip.origin)
+        path.origin = railnetwork.formatLocation(trip.origin)
         table.insert(path.edges, 1, {
-            edge = {destination = formatLocation(originNode)},
+            edge = {destination = railnetwork.formatLocation(originNode)},
             weight = 1
         })
     end
-    if not locationsMatch(trip.destination, destinationNode) then
+    if not railnetwork.locationsMatch(trip.destination, destinationNode) then
         -- Add an edge for the segment between the last location in the network and the final destination.
-        path.destination = formatLocation(trip.destination)
+        path.destination = railnetwork.formatLocation(trip.destination)
         table.insert(path.edges, {
-            edge = {destination = formatLocation(trip.destination)},
+            edge = {destination = railnetwork.formatLocation(trip.destination)},
             weight = 1
         })
     end
     return path
 end
 
-local function routeMatches(a, b)
+function railnetwork._routeMatches(a, b)
     if #a.edges ~= #b.edges then
         return false
     end
@@ -255,22 +257,22 @@ local function routeMatches(a, b)
     return true
 end
 
-local function findMatchingRoute(routes, route)
+function railnetwork.findMatchingRoute(routes, route)
     for key, existing in pairs(routes) do
-        if routeMatches(existing, route) then
+        if railnetwork._routeMatches(existing, route) then
             return key, existing
         end
     end
 end
 
-function RailNetwork:findRoutes(trip, tagWeight)
+function railnetwork.RailNetwork:findRoutes(trip, tagWeight)
     self:buildGraph()
     local routes = {}
-    local function addRoute(trip, tripTags)
+    function railnetwork.addRoute(trip, tripTags)
         trip.tags = tripTags
-        local route, routeError = self:findRoute(trip)
+        local route, routeError = self:findRoute(trip) -- TODO: Handle errors
         if route then
-            local key = findMatchingRoute(routes, route)
+            local key = railnetwork.findMatchingRoute(routes, route)
             if key then
                 table.insert(key, tripTags)
             else
@@ -280,10 +282,10 @@ function RailNetwork:findRoutes(trip, tagWeight)
         trip.tags = nil
     end
 
-    addRoute(trip, {})
+    railnetwork.addRoute(trip, {})
     tagWeight = tagWeight or 2
     for tag in pairs(self.tags) do
-        addRoute(trip, {[tag] = tagWeight})
+        railnetwork.addRoute(trip, {[tag] = tagWeight})
     end
     return routes
 end
@@ -292,6 +294,8 @@ local metatable = {
     __index = RailNetwork
 }
 
-function new()
+function railnetwork.new()
     return setmetatable({lines = {}, nodes = {}}, metatable)
 end
+
+return railnetwork

@@ -1,13 +1,15 @@
-os.loadAPI("apis/events")
-os.loadAPI("apis/net")
-os.loadAPI("apis/serializer")
-os.loadAPI("apis/wire")
-os.loadAPI("apis/minecartevents")
-os.loadAPI("apis/railnetwork")
-os.loadAPI("apis/autostartup")
-os.loadAPI("apis/autoupdater")
+package.path = package.path .. ";/modules/?;/modules/?.lua;/modules/?/init.lua"
+local events = require("events")
+local net = require("net")
+local serializer = require("serializer")
+local wire = require("wire")
+local minecartevents = require("minecartevents")
+local railnetwork = require("railnetwork")
+local autostartup = require("autostartup")
+local autoupdater = require("autoupdater")
+local railswitch = {}
 
-function setSwitchOutput(value)
+function railswitch.setSwitchOutput(value)
 	print(string.format("Setting switch to %s", tostring(value)))
 	wire.setOutput(config.switch, value)
 	if config.slowTrack ~= nil then
@@ -15,14 +17,14 @@ function setSwitchOutput(value)
 	end
 end
 
-function setSwitch(update)
+function railswitch.setSwitch(update)
 	local value = update.state
-	setSwitchOutput(value)
+	railswitch.setSwitchOutput(value)
 	state.switch = value
 	serializer.writeToFile("state", state)
 end
 
-function minecartDetected(eventName, detector, minecartType, minecartName)
+function railswitch.minecartDetected(eventName, detector, minecartType, minecartName)
 	print(string.format("Minecart detected: %s", minecartName))
 	local msg = {
 		switchId = config.switchId,
@@ -33,8 +35,8 @@ function minecartDetected(eventName, detector, minecartType, minecartName)
 	net.sendMessage("railrouter://", "minecartDetected", msg)
 end
 
-function onStartup()
-	net.registerMessageHandler("setSwitch", setSwitch)
+function railswitch.onStartup()
+	net.registerMessageHandler("setSwitch", railswitch.setSwitch)
 	events.registerHandler("char", function(evt, pressed)
 		if pressed == "d" then
 			net.sendMessage(config.router, "switchOffline", {id = config.switchId})
@@ -45,19 +47,19 @@ function onStartup()
 			autoupdater.updatePackages(true)
 		end
 	end)
-	minecartevents.registerMinecartHandler(minecartDetected)
+	minecartevents.registerMinecartHandler(railswitch.minecartDetected)
 	autoupdater.initialize()
-	
+
 	dofile("config")
-	print(string.format("RailSwitchOS: Switch %i (%s) listening on %s...", 
+	print(string.format("RailSwitchOS: Switch %i (%s) listening on %s...",
 		config.switchId, railnetwork.formatLocation(config.location), net.openModem(config.modem)))
 
 	state = serializer.readFromFile("state")
 	if state.switch == nil then
 		state.switch = false
 	end
-	setSwitchOutput(state.switch)
-	
+	railswitch.setSwitchOutput(state.switch)
+
 	autostartup.waitForDependencies({{type = "dns", address = config.router}})
 	net.sendMessage(config.router, "switchOnline", {
 		id = config.switchId,
@@ -67,8 +69,8 @@ function onStartup()
 		divergesTo = config.divergesTo
 	})
 	print(string.format("Switch %i online", config.switchId))
-	
+
 	events.runMessageLoop()
 end
 
-onStartup()
+return railswitch

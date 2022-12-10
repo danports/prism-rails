@@ -1,15 +1,17 @@
-os.loadAPI("apis/events")
-os.loadAPI("apis/net")
-os.loadAPI("apis/serializer")
-os.loadAPI("apis/wire")
-os.loadAPI("apis/minecartevents")
-os.loadAPI("apis/input")
-os.loadAPI("apis/graph")
-os.loadAPI("apis/railnetwork")
-os.loadAPI("apis/autostartup")
-os.loadAPI("apis/autoupdater")
+package.path = package.path .. ";/modules/?;/modules/?.lua;/modules/?/init.lua"
+local events = require("events")
+local net = require("net")
+local serializer = require("serializer")
+local wire = require("wire")
+local minecartevents = require("minecartevents")
+local input = require("input")
+local graph = require("graph")
+local railnetwork = require("railnetwork")
+local autostartup = require("autostartup")
+local autoupdater = require("autoupdater")
+local railstation = {}
 
-function requestDeparture(destination)
+function railstation.requestDeparture(destination)
 	local trip = {
 		type = "passenger",
 		computerId = os.computerID(),
@@ -21,12 +23,12 @@ function requestDeparture(destination)
 	net.sendMessage(config.router, "newTrip", trip)
 end
 
-function rejectDeparture(trip)
+function railstation.rejectDeparture(trip)
 	print(string.format("Departure rejected: %s", trip.rejectionReason))
-	delayedWriteHeader()
+	railstation.delayedWriteHeader()
 end
 
-function formatTags(tags)
+function railstation.formatTags(tags)
 	local parts = {}
 	for tag, enabled in pairs(tags) do
 		local part = tag
@@ -41,17 +43,17 @@ function formatTags(tags)
 	return "normal"
 end
 
-function formatRouteTags(tags)
+function railstation.formatRouteTags(tags)
 	local parts = {}
 	for _, tags in ipairs(tags) do
-		table.insert(parts, formatTags(tags))
+		table.insert(parts, railstation.formatTags(tags))
 	end
 	return table.concat(parts, "; ")
 end
 
-function selectDepartureRoute(trip)
+function railstation.selectDepartureRoute(trip)
 	if not trip.routes then
-		handleDeparture(trip)
+		railstation.handleDeparture(trip)
 		return
 	end
 	local routeOptions = {}
@@ -61,15 +63,15 @@ function selectDepartureRoute(trip)
 	if #routeOptions == 1 then
 		local key, route = next(trip.routes)
 		print(string.format("Only one route to %s (%s); preparing departure: %s", 
-			railnetwork.formatLocation(trip.destination), formatRouteTags(routeOptions[1]), graph.formatPath(route)))
+			railnetwork.formatLocation(trip.destination), railstation.formatRouteTags(routeOptions[1]), graph.formatPath(route)))
 		trip.routes = nil
-		handleDeparture(trip)
+		railstation.handleDeparture(trip)
 		return
 	end
 	local selected = input.menu({
 		prompt = "Select your route:",
 		items = routeOptions,
-		formatter = formatRouteTags
+		formatter = railstation.formatRouteTags
 	})
 	if not selected then
 		return
@@ -77,20 +79,20 @@ function selectDepartureRoute(trip)
 	print(string.format("Preparing departure: %s", graph.formatPath(trip.routes[selected])))
 	trip.routes = nil
 	trip.tags = selected[1]
-	handleDeparture(trip)
+	railstation.handleDeparture(trip)
 end
 
-function handleDeparture(trip)
+function railstation.handleDeparture(trip)
 	if trip.type ~= "passenger" then
 		print(string.format("ERROR: Unrecognized departure type %s; ignoring", trip.type))
 		return
 	end
-	
+
 	if config.features.passenger.cartsOut.minecartName then
 		trip.minecartName = config.features.passenger.cartsOut.minecartName
 		net.sendMessage(config.router, "tripDeparted", trip)	
 		print(string.format("Please place your %s cart on the rails and take off now. Travel safely and have a great day!", trip.minecartName))
-		delayedWriteHeader()	
+		railstation.delayedWriteHeader()
 		return
 	end
 
@@ -107,7 +109,7 @@ function handleDeparture(trip)
 	pendingTrip = trip
 end
 
-function writeHeader()
+function railstation.writeHeader()
 	term.clear()
 	term.setCursorPos(1, 1)
 	print(string.format("RailStationOS: Listening on %s...", config.modem))
@@ -119,7 +121,7 @@ function writeHeader()
 	print("Press L to dispense liquid.")
 end
 
-function getStationInput(prompt, filter)
+function railstation.getStationInput(prompt, filter)
 	while true do
 		print("Enter " .. prompt .. " or 0 to cancel:")
 		for i = 1, #stations do
@@ -145,7 +147,7 @@ function getStationInput(prompt, filter)
 	end
 end
 
-function getNumericInput(prompt)
+function railstation.getNumericInput(prompt)
 	-- TODO: Use input.request instead here.
 	while true do
 		print("Enter " .. prompt .. " or 0 to cancel:")
@@ -161,7 +163,7 @@ function getNumericInput(prompt)
 	end
 end
 
-function handleDepartureRequest()
+function railstation.handleDepartureRequest()
 	for _, station in ipairs(stations) do
 		print(string.format("%i = %s", station.stationId, station.stationName))
 	end
@@ -182,25 +184,25 @@ function handleDepartureRequest()
         invalidPrompt = "Invalid destination."
     })
 	if destination == nil then
-		writeHeader()
+		railstation.writeHeader()
 		return
 	end
-	
-	requestDeparture(destination)
+
+	railstation.requestDeparture(destination)
 end
 
-function handleLavaRequest()
-	local origin = getStationInput("the station to dispense the lava from", 
+function railstation.handleLavaRequest()
+	local origin = railstation.getStationInput("the station to dispense the lava from",
 		function(station)
-			return stations[station].features.lava ~= nil and 
+			return stations[station].features.lava ~= nil and
 				stations[station].features.lava.cartsOut ~= nil
 		end)
 	if origin == nil then
-		writeHeader()
+		railstation.writeHeader()
 		return
 	end
-	
-	local destination = getStationInput("the station to deliver the lava to",
+
+	local destination = railstation.getStationInput("the station to deliver the lava to",
 		function(station)
 			if station == origin then
 				return false
@@ -210,40 +212,40 @@ function handleLavaRequest()
 			end
 		end)
 	if destination == nil then
-		writeHeader()
+		railstation.writeHeader()
 		return
 	end
-	
-	local count = getNumericInput("the number of tank carts to deliver")
+
+	local count = railstation.getNumericInput("the number of tank carts to deliver")
 	if count == nil then
-		writeHeader()
+		railstation.writeHeader()
 		return
 	end
-	
+
 	local request = {
-		class = "lava", 
+		class = "lava",
 		source = origin,
-		destination = destination, 
-		requestType = "lava", 
+		destination = destination,
+		requestType = "lava",
 		count = count
 	}
 	net.sendMessage(config.router, "newRequest", request)
-	
+
 	print("Lava request sent. Have a great day!")
-	delayedWriteHeader()
+	railstation.delayedWriteHeader()
 end
 
-function delayedWriteHeader()
-	events.setTimer(5, writeHeader)
+function railstation.delayedWriteHeader()
+	events.setTimer(5, railstation.writeHeader)
 end
 
-function handleStationUpdate(data)
+function railstation.handleStationUpdate(data)
 	stations = data
 	serializer.writeToFile("stations", stations)
 	print("Station list updated.")
 end
 
-function minecartDetected(eventName, detector, minecartType, minecartName)
+function railstation.minecartDetected(eventName, detector, minecartType, minecartName)
 	if detector == config.features.passenger.cartsIn.detector then
 		print(string.format("New arrival: %s", minecartName))
 		local msg = {
@@ -266,23 +268,23 @@ function minecartDetected(eventName, detector, minecartType, minecartName)
 		pendingTrip.minecartType = minecartType
 		net.sendMessage(config.router, "tripDeparted", pendingTrip)
 		pendingTrip = nil
-		
-		delayedWriteHeader()
+
+		railstation.delayedWriteHeader()
 	end
 end
 
-function onStartup()
+function railstation.onStartup()
 	autoupdater.initialize()
-	net.registerMessageHandler("allowDeparture", selectDepartureRoute)
-	net.registerMessageHandler("rejectDeparture", rejectDeparture)
-	net.registerMessageHandler("stationUpdate", handleStationUpdate)
+	net.registerMessageHandler("allowDeparture", railstation.selectDepartureRoute)
+	net.registerMessageHandler("rejectDeparture", railstation.rejectDeparture)
+	net.registerMessageHandler("stationUpdate", railstation.handleStationUpdate)
 	minecartevents.registerMinecartHandler(minecartDetected)
 	events.registerHandler("char", function(evt, pressed)
 		if pressed == "d" then
-			handleDepartureRequest()
+			railstation.handleDepartureRequest()
 		end
 		if pressed == "l" then
-			handleLavaRequest()
+			railstation.handleLavaRequest()
 		end
 		if pressed == "u" then
 			autoupdater.updatePackages(true)
@@ -294,8 +296,8 @@ function onStartup()
 	config.modem = net.openModem(config.modem)
 	stations = serializer.readFromFile("stations")
 
-	writeHeader()
-	
+	railstation.writeHeader()
+
 	autostartup.waitForDependencies({{type = "dns", address = config.router}})
 	if config.stationId == nil then
 		print("Requesting station list...")
@@ -304,8 +306,8 @@ function onStartup()
 		net.sendMessage(config.router, "stationOnline", config)
 		print(string.format("Station %i online", config.stationId))
 	end
-	
+
 	events.runMessageLoop()
 end
 
-onStartup()
+return railstation

@@ -1,12 +1,14 @@
-os.loadAPI("apis/log")
-os.loadAPI("apis/events")
-os.loadAPI("apis/net")
-os.loadAPI("apis/dns")
-os.loadAPI("apis/serializer")
-os.loadAPI("apis/railnetwork")
-os.loadAPI("apis/autoupdater")
+package.path = package.path .. ";/modules/?;/modules/?.lua;/modules/?/init.lua"
+local log = require("log")
+local events = require("events")
+local net = require("net")
+local dns = require("dns")
+local serializer = require("serializer")
+local railnetwork = require("railnetwork")
+local autoupdater = require("autoupdater")
+local railrouter = {}
 
-function getStationComputerId(station, feature)
+function railrouter.getStationComputerId(station, feature)
 	local station = stations[station]
 	if station == nil then
 		return nil
@@ -18,9 +20,9 @@ function getStationComputerId(station, feature)
 	return featureConfig.computerId
 end
 
-function notifyNewRequest(request)
+function railrouter.notifyNewRequest(request)
 	print(string.format("Sending new %s request to station %i", request.class, request.source))
-	local computerId = getStationComputerId(request.source, request.class)
+	local computerId = railrouter.getStationComputerId(request.source, request.class)
 	if computerId == nil then
 		log.err(string.format("Sending request to station %i but %s computer ID not found; discarding request", request.source, request.class))
 		return
@@ -28,31 +30,31 @@ function notifyNewRequest(request)
 	net.sendMessage(computerId, "newRequest", request)
 end
 
-function mergeTables(a, b)
+function railrouter.mergeTables(a, b)
 	for key, value in pairs(b) do
 		if a[key] == nil or type(a[key]) ~= "table" or type(value) ~= "table" then
 			a[key] = value
 		else
-			mergeTables(a[key], value)
+			railrouter.mergeTables(a[key], value)
 		end
 	end
 end
 
-function updateStation(station)
+function railrouter.updateStation(station)
 	log.info(string.format("Updating station %i", station.stationId))
 	if stations[station.stationId] == nil then
 		stations[station.stationId] = {}
 	end
-	mergeTables(stations[station.stationId], station)
-	addStationToNetwork(station)
-	stationsChanged()
+	railrouter.mergeTables(stations[station.stationId], station)
+	railrouter.addStationToNetwork(station)
+	railrouter.stationsChanged()
 end
 
-function stationsChanged()
+function railrouter.stationsChanged()
 	serializer.writeToFile("stations", stations)
-	
+
 	for id in pairs(stations) do
-		local computerId = getStationComputerId(id, "passenger")
+		local computerId = railrouter.getStationComputerId(id, "passenger")
 		if computerId ~= nil then
 			log.info(string.format("Sending station update to %i at station %i", computerId, id))
 			net.sendMessage(computerId, "stationUpdate", stations)
@@ -60,20 +62,20 @@ function stationsChanged()
 	end
 end
 
-function sendStationList(args, sender)
+function railrouter.sendStationList(_, sender)
 	log.info(string.format("Sending station list to %i", sender))
 	net.sendMessage(sender, "stationUpdate", stations)
 end
 
-function removeStation(station)
+function railrouter.removeStation(station)
 	log.info(string.format("Removing station %i", station.stationId))
 	stations[station.stationId] = nil
-	network:removeNode(getStationNode(station.stationId, false))
-	network:removeNode(getStationNode(station.stationId, true))
-	stationsChanged()
+	network:removeNode(railrouter.getStationNode(station.stationId, false))
+	network:removeNode(railrouter.getStationNode(station.stationId, true))
+	railrouter.stationsChanged()
 end
 
-function validateTrip(trip)
+function railrouter.validateTrip(trip)
 	if trip.origin and trip.destination then
 		local routes = network:findRoutes(trip)
 		if next(routes) then
@@ -86,10 +88,10 @@ function validateTrip(trip)
 	return network:findClosestNode(trip.destination)
 end
 
-function checkTrip(trip)
+function railrouter.checkTrip(trip)
 	log.info(string.format("New trip: %s at %s departing for %s", trip.type, railnetwork.formatLocation(trip.origin), railnetwork.formatLocation(trip.destination)))
-	
-	local result, tripError = validateTrip(trip)
+
+	local result, tripError = railrouter.validateTrip(trip)
 	if result then
 		net.sendMessage(trip.computerId, "allowDeparture", trip)
 	else
@@ -99,22 +101,22 @@ function checkTrip(trip)
 	end
 end
 
-function registerTrip(trip)
+function railrouter.registerTrip(trip)
 	log.info(string.format("Departed: %s at %s in %s departing for %s", trip.type, railnetwork.formatLocation(trip.origin), trip.minecartName, railnetwork.formatLocation(trip.destination)))
-	
+
 	trips[trip.minecartName] = trip
 	serializer.writeToFile("trips", trips)
 end
 
-function minecartDetected(detection)
+function railrouter.minecartDetected(detection)
 	log.info(string.format("Minecart detected: %s at %s", detection.minecartName, railnetwork.formatLocation(detection.location)))
-	
+
 	local trip = trips[detection.minecartName]
 	if trip == nil then
 		log.warn(string.format("No trip active for %s; ignoring detection", detection.minecartName))
 		return
 	end
-	
+
 	if railnetwork.locationsMatch(trip.destination, detection.location) then
 		log.info(string.format("Trip to %s completed for %s", railnetwork.formatLocation(trip.destination), detection.minecartName))
 		trips[detection.minecartName] = nil
@@ -124,7 +126,7 @@ function minecartDetected(detection)
 
 	trip.lastKnownLocation = detection.location
 	serializer.writeToFile("trips", trips)
-	
+
 	if detection.switchId == nil then
 		-- There's nothing to do here if this location is not a switch.
 		return
@@ -141,33 +143,33 @@ function minecartDetected(detection)
 		log.warn(string.format("Ignoring detection: %s", pathError))
 		return
 	end
-	
+
 	local edge = path.edges[1]
 	if edge == nil then
 		log.warn(string.format("Ignoring detection: Path to destination %s is empty", railnetwork.formatLocation(trip.destination)))
 		return
 	end
-	
+
 	local switchState = edge.edge.switchState or false
 	log.info(string.format("Setting switch %i to %s", detection.switchId, tostring(switchState)))
 	net.sendMessage(switch.computerId, "setSwitch", {state = switchState})
 end
 
-function switchOnline(switch)
+function railrouter.switchOnline(switch)
 	log.info(string.format("Switch %i online", switch.id))
 	switches[switch.id] = switch
 	serializer.writeToFile("switches", switches)
-	addSwitchToNetwork(switch)
+	railrouter.addSwitchToNetwork(switch)
 end
 
-function switchOffline(switch)
+function railrouter.switchOffline(switch)
 	log.info(string.format("Switch %i offline", switch.id))
 	switches[switch.id] = nil
 	serializer.writeToFile("switches", switches)
-	network:removeNode(getSwitchNode(switch.id))
+	network:removeNode(railrouter.getSwitchNode(switch.id))
 end
 
-function getStationNode(id, departing)
+function railrouter.getStationNode(id, departing)
 	local nodeType = "arrive"
 	if departing then
 		nodeType = "depart"
@@ -175,76 +177,76 @@ function getStationNode(id, departing)
 	return string.format("S%i-%s", id, nodeType)
 end
 
-function getSwitchNode(id)
+function railrouter.getSwitchNode(id)
 	return string.format("T%i", id)
 end
 
-function getSwitchConnection(location, switchState)
+function railrouter.getSwitchConnection(location, switchState)
 	if location then
 		return {
 			location = location.location or location, -- For backwards compatibility with older switches
 			switchState = switchState,
 			distance = location.distance,
-			tags = location.tags
+			tags = location.tags,
 		}
 	end
 end
 
-function addSwitchToNetwork(switch)
+function railrouter.addSwitchToNetwork(switch)
 	if switch.continuesTo and switch.location.direction then
 		error(string.format("Switch %i defines both continuesTo and location.direction; drop one of these to resolve the conflict", switch.id))
 	end
 	if not switch.divergesTo then
 		error(string.format("Switch %i does not define divergesTo", switch.id))
 	end
-	network:addNode(getSwitchNode(switch.id), {
+	network:addNode(railrouter.getSwitchNode(switch.id), {
 		location = switch.location,
-		connections = {getSwitchConnection(switch.divergesTo, true), getSwitchConnection(switch.continuesTo, false)}
+		connections = {railrouter.getSwitchConnection(switch.divergesTo, true), railrouter.getSwitchConnection(switch.continuesTo, false)},
 	})
 end
 
-function addStationToNetwork(station)
+function railrouter.addStationToNetwork(station)
 	if not station.features.passenger then
 		return
 	end
 	if station.features.passenger.cartsIn then
-		network:addNode(getStationNode(station.stationId, false), {location = station.features.passenger.cartsIn.location})
+		network:addNode(railrouter.getStationNode(station.stationId, false), {location = station.features.passenger.cartsIn.location})
 	end
 	if station.features.passenger.cartsOut then
-		network:addNode(getStationNode(station.stationId, true), {location = station.features.passenger.cartsOut.location})
+		network:addNode(railrouter.getStationNode(station.stationId, true), {location = station.features.passenger.cartsOut.location})
 	end
 end
 
-function buildRailNetwork()
+function railrouter.buildRailNetwork()
 	network = railnetwork.new()
 	for _, switch in pairs(switches) do
-		addSwitchToNetwork(switch)
+		railrouter.addSwitchToNetwork(switch)
 	end
 	for _, station in pairs(stations) do
-		addStationToNetwork(station)
+		railrouter.addStationToNetwork(station)
 	end
 	for id, line in pairs(lines) do
 		network:addLine(id, line)
 	end
 end
 
-function onStartup()
+function railrouter.onStartup()
 	trips = serializer.readFromFile("trips")
 	switches = serializer.readFromFile("switches")
 	stations = serializer.readFromFile("stations")
 	lines = serializer.readFromFile("lines")
-	buildRailNetwork()
-	net.registerMessageHandler("newRequest", notifyNewRequest)
-	net.registerMessageHandler("stationOnline", updateStation)
-	net.registerMessageHandler("stationOffline", removeStation)
-	net.registerMessageHandler("newTrip", checkTrip)
-	net.registerMessageHandler("tripDeparted", registerTrip)
+	railnetwork.buildRailNetwork()
+	net.registerMessageHandler("newRequest", railnetwork.notifyNewRequest)
+	net.registerMessageHandler("stationOnline", railnetwork.updateStation)
+	net.registerMessageHandler("stationOffline", railnetwork.removeStation)
+	net.registerMessageHandler("newTrip", railnetwork.checkTrip)
+	net.registerMessageHandler("tripDeparted", railnetwork.registerTrip)
 	net.registerMessageHandler("minecartDetected", minecartDetected)
-	net.registerMessageHandler("switchOnline", switchOnline)
-	net.registerMessageHandler("switchOffline", switchOffline)
-	net.registerRawMessageHandler("getStations", sendStationList)
+	net.registerMessageHandler("switchOnline", railnetwork.switchOnline)
+	net.registerMessageHandler("switchOffline", railnetwork.switchOffline)
+	net.registerRawMessageHandler("getStations", railnetwork.sendStationList)
 	autoupdater.initialize()
-	
+
 	dofile("config")
 	log.info(string.format("RailRouterOS: Listening on %s...", net.openModem(config.modem)))
 	dns.register("railrouter")
@@ -252,4 +254,5 @@ function onStartup()
 	events.runMessageLoop()
 end
 
-onStartup()
+return railrouter
+

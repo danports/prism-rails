@@ -8,6 +8,7 @@
 		{name = "minecartevents"},
 		{name = "railnetwork"},
 		{name = "autostartup"},
-		{name = "amber-autoupdater"}
+		{name = "amber-autoupdater"},
+		{name = "startupmgr"}
 	}
 }
